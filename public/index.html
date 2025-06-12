@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Combined Log Viewer</title>
+    <style>
+      body {
+        font-family: "Fira Code", monospace;
+        background: #1e1e2e;
+        color: #cdd6f4;
+        padding: 20px;
+      }
+      h1 {
+        color: #89b4fa;
+      }
+      select,
+      button {
+        margin: 10px 5px;
+        padding: 8px 12px;
+        font-size: 16px;
+        background-color: #313244;
+        border: 1px solid #45475a;
+        color: #f5f5f5;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:hover,
+      select:hover {
+        background-color: #45475a;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background: #181825;
+        padding: 15px;
+        max-height: 80vh;
+        overflow-y: auto;
+        border: 1px solid #45475a;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+
+      .timestamp {
+        color: #7f848e;
+      }
+      .namespace {
+        color: #56c8d8;
+        font-weight: bold;
+      }
+      .info {
+        color: #5af78e;
+        font-weight: bold;
+      }
+      .warning {
+        color: #f1fa8c;
+        font-weight: bold;
+      }
+      .error {
+        color: #ff5c57;
+        font-weight: bold;
+      }
+      .fatal {
+        color: #ff6e6e;
+        font-weight: bold;
+      }
+      .json-key {
+        color: #caa9fa;
+      }
+      .json-value {
+        color: #89ddff;
+      }
+      .ip {
+        color: #bd93f9;
+      }
+      .module {
+        color: #f3f99d;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📟 Combined Log Viewer</h1>
+
+    <label>
+      Application:
+      <select id="appName">
+        <option value="app1">Name of App</option>
+        <option value="app2">Name of App</option>
+      </select>
+    </label>
+
+    <button id="loadLogs">Load Combined Logs</button>
+
+    <pre id="logOutput"></pre>
+
+    <script>
+      let ws;
+      const maxLines = 1000;
+
+      document.getElementById("loadLogs").onclick = () => {
+        const appName = document.getElementById("appName").value;
+        document.getElementById("logOutput").innerHTML = "";
+        connectWebSocket(appName);
+      };
+
+      function connectWebSocket(appName) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+
+        // 🌐 Automatically use wss:// if behind HTTPS (e.g. Cloudflare tunnel)
+        const protocol = location.protocol === "https:" ? "wss" : "ws";
+        const wsUrl = `${protocol}://${location.host}`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log("WebSocket connected");
+          ws.send(JSON.stringify({ appName }));
+        };
+
+        ws.onmessage = (event) => {
+          const logOutput = document.getElementById("logOutput");
+          const message = highlight(event.data);
+          logOutput.innerHTML += message + "<br>";
+
+          const lines = logOutput.innerHTML.split("<br>");
+          if (lines.length > maxLines) {
+            logOutput.innerHTML = lines.slice(-maxLines).join("<br>");
+          }
+
+          logOutput.scrollTop = logOutput.scrollHeight;
+        };
+
+        ws.onerror = (err) => {
+          console.error("WebSocket error:", err);
+          const logOutput = document.getElementById("logOutput");
+          logOutput.innerHTML = `<span class="error">WebSocket connection failed.</span><br>${logOutput.innerHTML}`;
+        };
+
+        ws.onclose = () => {
+          console.warn("WebSocket closed");
+        };
+      }
+
+      function highlight(text) {
+        return text
+          .replace(
+            /(\d{2}\/\d{2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (AM|PM))/g,
+            '<span class="timestamp">$1</span>'
+          )
+          .replace(/\[Nest\]/g, '<span class="namespace">[Nest]</span>')
+          .replace(/\b(INFO|LOG|DEBUG)\b/g, '<span class="info">$1</span>')
+          .replace(/\b(WARN|WARNING)\b/g, '<span class="warning">$1</span>')
+          .replace(
+            /\b(ERROR|Exception|FAILED)\b/g,
+            '<span class="error">$1</span>'
+          )
+          .replace(/\b(FATAL)\b/g, '<span class="fatal">$1</span>')
+          .replace(/"(.*?)":/g, '"<span class="json-key">$1</span>":')
+          .replace(/:\s?"(.*?)"/g, ': "<span class="json-value">$1</span>"')
+          .replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, '<span class="ip">$&</span>')
+          .replace(
+            /\b(UserService|AuthService|DriverService|Module[A-Za-z0-9]*)\b/g,
+            '<span class="module">$1</span>'
+          );
+      }
+
+      // Auto-load default logs on page load
+      window.onload = () => {
+        document.getElementById("loadLogs").click();
+      };
+    </script>
+  </body>
+</html>
