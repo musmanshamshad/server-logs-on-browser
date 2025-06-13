@@ -19,11 +19,7 @@ Supports WebSocket streaming, Cloudflare Tunnel (HTTPS & WSS), and ANSI-free for
 
 ## 📁 Project Structure
 
-logs/
-├── index.js # WebSocket + Express backend
-├── public/
-│ └── index.html # Log viewer frontend
-└── README.md
+<pre><code>logs/ ├── index.js # WebSocket + Express backend ├── public/ │ └── index.html # Log viewer frontend └── README.md # Project documentation </code></pre>
 
 ## Log File Format
 
